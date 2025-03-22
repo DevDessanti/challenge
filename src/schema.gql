@@ -1,0 +1,76 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type CompanyType {
+  id: ID!
+  name: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+  deleted_at: DateTime
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type ProvisionDto {
+  id: String!
+  title: String!
+  type: String!
+  description: String
+  cover: String
+  url: String!
+  created_at: DateTime!
+  allow_download: Boolean!
+  is_embeddable: Boolean!
+  format: String
+  bytes: Int!
+  total_likes: Int!
+  metadata: JSONObject
+}
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSONObject
+
+type ContentType {
+  id: ID!
+  title: String!
+  type: String!
+  description: String
+  url: String!
+  cover: String
+  total_likes: Int!
+  created_at: DateTime!
+  updated_at: DateTime!
+  deleted_at: DateTime
+  company_id: String!
+  metadata: JSONObject
+}
+
+type Query {
+  companies: [CompanyType!]!
+  company(id: String!): CompanyType!
+  provision(content_id: String!): ProvisionDto!
+}
+
+type Mutation {
+  createCompany(name: String!): CompanyType!
+  createContent(input: CreateContentInput!): ContentType!
+}
+
+input CreateContentInput {
+  title: String!
+  type: String!
+  description: String
+  url: String!
+  cover: String
+  metadata: MetadataInput
+}
+
+input MetadataInput {
+  data: JSONObject
+}

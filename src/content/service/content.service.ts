@@ -1,138 +1,104 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common'
-import { ContentRepository } from 'src/content/repository'
-import { ProvisionDto } from 'src/content/dto'
+// src/content/service/content.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Content } from '../entity/content.entity'
+import { ProvisionDto } from '../dto/provision.dto'
+import { statSync } from 'fs'
+import { join, normalize, sep } from 'path'
+import { Logger } from '@nestjs/common'
+import { CONTENT_TYPES } from '../config/content-types'
 
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger(ContentService.name)
-  private readonly expirationTime = 3600 // 1 hour
 
-  constructor(private readonly contentRepository: ContentRepository) {}
+  constructor(
+    @InjectRepository(Content)
+    private contentRepository: Repository<Content>,
+  ) {}
 
-  async provision(contentId: string): Promise<ProvisionDto> {
-    if (!contentId) {
-      this.logger.error(`Invalid Content ID: ${contentId}`)
-      throw new UnprocessableEntityException(`Content ID is invalid: ${contentId}`)
-    }
-
-    this.logger.log(`Provisioning content for id=${contentId}`)
-    let content
-
-    try {
-      content = await this.contentRepository.findOne(contentId)
-    } catch (error) {
-      this.logger.error(`Database error while fetching content: ${error}`)
-      throw new NotFoundException(`Database error: ${error}`)
-    }
-
-    if (!content) {
-      this.logger.warn(`Content not found for id=${contentId}`)
-      throw new NotFoundException(`Content not found: ${contentId}`)
-    }
-
-    const filePath = content.url ? content.url : undefined
-    let bytes = 0
-
-    try {
-      bytes = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0
-    } catch (error) {
-      this.logger.error(`File system error: ${error}`)
-    }
-
-    const url = this.generateSignedUrl(content.url || '')
-
-    if (!content.type) {
-      this.logger.warn(`Missing content type for ID=${contentId}`)
-      throw new BadRequestException('Content type is missing')
-    }
-
-    if (['pdf', 'image', 'video', 'link'].includes(content.type)) {
-      switch (content.type) {
-        case 'pdf':
-          return {
-            id: content.id,
-            title: content.title,
-            cover: content.cover,
-            created_at: content.created_at,
-            description: content.description,
-            total_likes: content.total_likes,
-            type: 'pdf',
-            url,
-            allow_download: true,
-            is_embeddable: false,
-            format: 'pdf',
-            bytes,
-            metadata: {
-              author: 'Unknown',
-              pages: Math.floor(bytes / 50000) || 1,
-              encrypted: false,
-            },
-          }
-        case 'image':
-          return {
-            id: content.id,
-            title: content.title,
-            cover: content.cover,
-            created_at: content.created_at,
-            description: content.description,
-            total_likes: content.total_likes,
-            type: 'image',
-            url,
-            allow_download: true,
-            is_embeddable: true,
-            format: path.extname(content.url || '').slice(1) || 'jpg',
-            bytes,
-            metadata: { resolution: '1920x1080', aspect_ratio: '16:9' },
-          }
-        case 'video':
-          return {
-            id: content.id,
-            title: content.title,
-            cover: content.cover,
-            created_at: content.created_at,
-            description: content.description,
-            total_likes: content.total_likes,
-            type: 'video',
-            url,
-            allow_download: false,
-            is_embeddable: true,
-            format: path.extname(content.url || '').slice(1) || 'mp4',
-            bytes,
-            metadata: { duration: Math.floor(bytes / 100000) || 10, resolution: '1080p' },
-          }
-        case 'link':
-          return {
-            id: content.id,
-            title: content.title,
-            cover: content.cover,
-            created_at: content.created_at,
-            description: content.description,
-            total_likes: content.total_likes,
-            type: 'link',
-            url: content.url || 'http://default.com',
-            allow_download: false,
-            is_embeddable: true,
-            format: null,
-            bytes: 0,
-            metadata: { trusted: content.url?.includes('https') || false },
-          }
-      }
-    }
-
-    this.logger.warn(`Unsupported content type for ID=${contentId}, type=${content.type}`)
-    throw new BadRequestException(`Unsupported content type: ${content.type}`)
+  async createContent(content: Partial<Content>): Promise<Content> {
+    const newContent = this.contentRepository.create(content)
+    return this.contentRepository.save(newContent)
   }
 
-  private generateSignedUrl(originalUrl: string): string {
-    const expires = Math.floor(Date.now() / 1000) + this.expirationTime
-    return `${originalUrl}?expires=${expires}&signature=${Math.random().toString(36).substring(7)}`
+  async provision(contentId: string, user: any): Promise<ProvisionDto> {
+    const content = await this.contentRepository.findOne({ where: { id: contentId } })
+    if (!content) {
+      throw new NotFoundException(`Content with ID ${contentId} not found`)
+    }
+
+    const format = this.getFormatFromType(content.type)
+    const bytes = this.getFileSize(content.url)
+    const { allow_download, is_embeddable } = this.getContentPermissions(content.type, bytes)
+
+    return {
+      id: content.id,
+      title: content.title,
+      type: content.type,
+      description: content.description,
+      cover: content.cover,
+      url: content.url,
+      created_at: content.created_at,
+      allow_download,
+      is_embeddable,
+      format,
+      bytes,
+      total_likes: content.total_likes,
+      metadata: content.metadata,
+    }
+  }
+
+  private getFormatFromType(type: string): string {
+    if (!type || !type.includes('/')) {
+      this.logger.warn(`Invalid content type: ${type}, defaulting to 'unknown'`)
+      return 'unknown'
+    }
+
+    const format = type.split('/')[1].toLowerCase()
+    const contentTypeConfig = CONTENT_TYPES[type as keyof typeof CONTENT_TYPES]
+    const finalFormat = contentTypeConfig?.format || format
+    this.logger.log(`Extracted format: ${finalFormat} from type: ${type}`)
+    return finalFormat
+  }
+
+  private getFileSize(url: string): number {
+    try {
+      const basePath = join(process.cwd(), 'static')
+      // Sanitizar o caminho para evitar path traversal
+      const sanitizedPath = normalize(url.replace(/^\/static\//, '')).replace(/\\/g, '/')
+      // Verificar se o caminho contém ".." para evitar acesso a diretórios superiores
+      if (sanitizedPath.includes('..')) {
+        throw new Error('Invalid file path: Path traversal detected')
+      }
+      const filePath = join(basePath, sanitizedPath)
+      const stats = statSync(filePath)
+      const fileSize = stats.size
+      this.logger.log(`File size for ${url}: ${fileSize} bytes`)
+      return fileSize
+    } catch (error) {
+      this.logger.error(`Failed to get file size for ${url}: ${error.message}`)
+      return 0
+    }
+  }
+
+  private getContentPermissions(
+    type: string,
+    bytes: number,
+  ): { allow_download: boolean; is_embeddable: boolean } {
+    const contentTypeConfig = CONTENT_TYPES[type as keyof typeof CONTENT_TYPES]
+    const is_embeddable = contentTypeConfig?.is_embeddable ?? false
+    let allow_download = contentTypeConfig?.allow_download ?? false
+
+    const maxDownloadSize = 100 * 1024 * 1024 // 100 MB em bytes
+    if (bytes > maxDownloadSize) {
+      allow_download = false
+      this.logger.log(
+        `File size (${bytes} bytes) exceeds max download size (${maxDownloadSize} bytes), disabling download`,
+      )
+    }
+
+    return { allow_download, is_embeddable }
   }
 }

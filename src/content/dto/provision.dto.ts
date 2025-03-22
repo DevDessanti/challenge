@@ -39,6 +39,6 @@ export class ProvisionDto {
   @Field(() => Int)
   total_likes: number
 
-  @Field(() => GraphQLJSONObject)
-  metadata: object
+  @Field(() => GraphQLJSONObject, { nullable: true })
+  metadata?: object
 }

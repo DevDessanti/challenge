@@ -1,3 +1,4 @@
+// src/user/entity/user.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm'
 import { Company } from 'src/company/entity'
 
@@ -9,7 +10,7 @@ export class User {
   @Column()
   name: string
 
-  @Column({ unique: true })
+  @Column()
   email: string
 
   @Column()
@@ -17,6 +18,8 @@ export class User {
 
   @Column()
   role: string
+
+  company_id: string // Adiciona o campo company_id explicitamente
 
   @ManyToOne(() => Company, (company) => company.users)
   @JoinColumn({ name: 'company_id' })
