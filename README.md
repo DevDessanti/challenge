@@ -55,7 +55,7 @@ npm run db:create_migration --name=create-xpto-table
 
 ## Melhorias e Alterações Realizadas
 
-Durante o desenvolvimento, implementamos várias melhorias, alinhadas aos objetivos de escalabilidade, segurança e evolução, conforme solicitado no desafio. Além disso, identificamos uma simplificação inesperada ao remover dependências desnecessárias, como o campo company_id. Abaixo, detalhamos cada aspecto:
+Durante o desenvolvimento, implementei várias melhorias, alinhadas aos objetivos de escalabilidade, segurança e evolução, conforme solicitado no desafio. Abaixo, detalhamos cada aspecto:
 
 ### Escalabilidade
 
@@ -72,7 +72,7 @@ const [content] = await this.dataSource.query<Content[]>(
 )
 ```
 
-**Essa abordagem era suscetível a injeção SQL, pois concatenava diretamente o contentId na string SQL. Substituímos por:
+**Essa abordagem era suscetível a injeção SQL, pois concatenava diretamente o contentId na string SQL. Substituímos por:**
 
 ```bash
 const content = await this.contentRepository.findOne({
@@ -85,7 +85,7 @@ Validação de Entrada: Implementamos validações para tipos de conteúdo e ext
 
 ## Evolução
 
-Tipos de Conteúdo Extensíveis: O sistema suporta múltiplos tipos de conteúdo (texto, imagem, vídeo, etc.), definidos em CONTENT_TYPES. Novos tipos podem ser adicionados facilmente, expandindo a funcionalidade sem alterar a estrutura principal:
+**Tipos de Conteúdo Extensíveis: O sistema suporta múltiplos tipos de conteúdo (texto, imagem, vídeo, etc.), definidos em CONTENT_TYPES. Novos tipos podem ser adicionados facilmente, expandindo a funcionalidade sem alterar a estrutura principal:**
 
 ```bash
 export const CONTENT_TYPES = {
@@ -98,5 +98,31 @@ export const CONTENT_TYPES = {
 } as const;
 ```
 
+
 Essa abordagem permite evoluir o sistema para suportar novos formatos, conforme descrito na documentação do GraphQL Schema.
 Flexibilidade de Metadados: O campo metadata foi projetado para armazenar informações adicionais, permitindo que o sistema evolua para suportar novos requisitos sem mudanças no schema, usando o tipo GraphQL Metadata, facilitando a adaptação futura.
+
+## Explicações Detalhadas das Alterações
+
+**Abaixo, detalhamos as mudanças em arquivos-chave, refletindo as melhorias realizadas:**
+
+*content.repository.ts*
+
+ . **Antes:** Usava consultas SQL brutas, como SELECT * FROM contents WHERE id = '${contentId}', vulneráveis a injeção SQL.
+ . **Depois:** Substituímos por métodos seguros do TypeORM, como findOne, eliminando o risco de injeção SQL.
+ . **Impacto:** Melhorou a segurança e simplificou a manutenção, alinhando-se às boas práticas de desenvolvimento, conforme documentado no TypeORM.
+ 
+*content.resolver.ts*
+
+  . **Mudança:** Removemos referências a propriedades inexistentes em metadata, como input.metadata?.data, corrigindo erros de tipo.
+  . **Impacto:** Melhorou a robustez do resolver e facilitou a evolução, focando nas funcionalidades essenciais, conforme boas práticas do NestJS GraphQL.
+  
+*content.service.ts*
+
+  . **Mudança:** Ajustamos o método provision para remover argumentos desnecessários, como user, alinhando-o com as necessidades atuais. Mantivemos validações para tipos de conteúdo e extensões, garantindo escalabilidade.
+  . **Impacto:** Melhorou a eficiência e preparou o sistema para futuras expansões, conforme documentado no NestJS.
+  
+  
+### Conclusão
+
+  O sistema de gerenciamento de conteúdo agora é mais seguro, escalável e preparado para evoluir. Com a correção da vulnerabilidade de injeção SQL, a arquitetura modular e a flexibilidade para novos tipos de conteúdo, o projeto está bem posicionado para suportar crescimento futuro e atender a novos requisitos.
