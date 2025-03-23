@@ -109,17 +109,21 @@ Flexibilidade de Metadados: O campo metadata foi projetado para armazenar inform
 *content.repository.ts*
 
  . **Antes:** Usava consultas SQL brutas, como SELECT * FROM contents WHERE id = '${contentId}', vulneráveis a injeção SQL.
+ 
  . **Depois:** Substituímos por métodos seguros do TypeORM, como findOne, eliminando o risco de injeção SQL.
+ 
  . **Impacto:** Melhorou a segurança e simplificou a manutenção, alinhando-se às boas práticas de desenvolvimento, conforme documentado no TypeORM.
  
 *content.resolver.ts*
 
   . **Mudança:** Removemos referências a propriedades inexistentes em metadata, como input.metadata?.data, corrigindo erros de tipo.
+  
   . **Impacto:** Melhorou a robustez do resolver e facilitou a evolução, focando nas funcionalidades essenciais, conforme boas práticas do NestJS GraphQL.
   
 *content.service.ts*
 
   . **Mudança:** Ajustamos o método provision para remover argumentos desnecessários, como user, alinhando-o com as necessidades atuais. Mantivemos validações para tipos de conteúdo e extensões, garantindo escalabilidade.
+  
   . **Impacto:** Melhorou a eficiência e preparou o sistema para futuras expansões, conforme documentado no NestJS.
   
   
