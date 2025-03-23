@@ -64,7 +64,7 @@ Arquitetura Modular: O projeto foi estruturado em módulos, como ContentModule, 
 
 ### Segurança
 
-**Prevenção de Injeção SQL: Identificamos e corrigimos uma vulnerabilidade crítica no arquivo content.repository.ts. Anteriormente, o método findOne usava uma consulta SQL bruta vulnerável:
+**Prevenção de Injeção SQL: Identificamos e corrigimos uma vulnerabilidade crítica no arquivo content.repository.ts. Anteriormente, o método findOne usava uma consulta SQL bruta vulnerável:**
 
 ```bash
 const [content] = await this.dataSource.query<Content[]>(
